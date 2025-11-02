@@ -48,17 +48,19 @@ class TbotSub(TbotListener):
             tcp = {
                 "host": shared.r_host,
                 "port": int(shared.r_port),
-                "password": shared.r_passwd,
                 "decode_responses": True,
                 "retry_on_timeout": True,
                 "max_connections": 10,
             }
             unix = {
-                "password": shared.r_passwd,
                 "decode_responses": True,
                 "retry_on_timeout": True,
                 "max_connections": 10,
             }
+            # Only add password if it's configured and not empty
+            if shared.r_passwd and shared.r_passwd.strip():
+                tcp["password"] = shared.r_passwd
+                unix["password"] = shared.r_passwd
             if shared.r_host:
                 self.pool = redis.ConnectionPool(**tcp)
             else:

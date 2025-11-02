@@ -597,13 +597,37 @@ class TBOTDecoder(TbotObserver):
 
         if self.is_connected():
             if data_dict:
-                if self.profiler and tbot_ts:
-                    self.calculate_end_to_end_delay(
-                        data_dict.get("timestamp"), int(tbot_ts)
+                # Use tbot_ts if available, otherwise use timestamp from data_dict
+                effective_ts = tbot_ts if tbot_ts else str(data_dict.get("timestamp", ""))
+                
+                # Validate that we have a valid timestamp
+                if not effective_ts or effective_ts == "0" or effective_ts == "":
+                    logger.error(
+                        f"Cannot process message without valid timestamp: "
+                        f"tbot_ts={tbot_ts}, data_timestamp={data_dict.get('timestamp')}, "
+                        f"data_dict={data_dict.get('key', 'N/A')}"
                     )
-                if tbot_ts:
-                    self.ib_dispatch_order(tbot_ts, data_dict)
-                    caller.delete_event(redis_stream_id)
+                    return
+                
+                if self.profiler and effective_ts:
+                    try:
+                        self.calculate_end_to_end_delay(
+                            data_dict.get("timestamp"), int(effective_ts)
+                        )
+                    except (ValueError, TypeError) as e:
+                        logger.warning(
+                            f"Could not calculate delay: tbot_ts={tbot_ts}, "
+                            f"timestamp={data_dict.get('timestamp')}, error={e}"
+                        )
+                
+                logger.debug(
+                    f"Processing message: key={data_dict.get('key', 'N/A')}, "
+                    f"ticker={data_dict.get('ticker', 'N/A')}, "
+                    f"direction={data_dict.get('direction', 'N/A')}, "
+                    f"effective_ts={effective_ts}"
+                )
+                self.ib_dispatch_order(effective_ts, data_dict)
+                caller.delete_event(redis_stream_id)
                 logger.debug("Completed the message delivery")
             else:
                 # Give time to async loop
